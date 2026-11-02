@@ -1,0 +1,7 @@
+name = "hlplanet-keyboard-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# api.hlplanet.com, once the hlplanet.com zone is in the same Cloudflare account
+routes = [{ pattern = "api.hlplanet.com", custom_domain = true }]

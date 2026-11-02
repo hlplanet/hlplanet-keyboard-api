@@ -1,0 +1,25 @@
+{
+  "name": "hlplanet-keyboard-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HLPlanet Keyboard API: keyboard sizes, 30 measured keyboards, comparisons, desk fit and key lookup. Cloudflare Worker serving api.hlplanet.com.",
+  "license": "MIT",
+  "author": "HLPlanet (https://www.hlplanet.com/)",
+  "homepage": "https://api.hlplanet.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hlplanet/hlplanet-keyboard-api.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.156.2"
+  }
+}

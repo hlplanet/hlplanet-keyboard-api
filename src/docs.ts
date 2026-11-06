@@ -64,6 +64,10 @@ console.log(fit.mouse_room_cm, fit.pad_fits);
 
 Errors use one JSON shape for every endpoint: see [Errors](${BASE}/docs/errors).
 
+## MCP server for AI assistants
+
+The same data is available as MCP tools at \`${BASE}/mcp\` (Streamable HTTP, no sign-in). Claude, Cursor, VS Code and Hermes Agent can connect to it directly: see [MCP server](${BASE}/docs/mcp).
+
 ## Machine-readable docs
 
 - [OpenAPI 3.0 specification](${BASE}/openapi.json) for Postman, RapidAPI and code generators.
@@ -218,6 +222,62 @@ curl "${BASE}/v1/tools"
 \`\`\`
 
 ${json(tools())}`
+  },
+  {
+    path: '/docs/mcp',
+    title: 'MCP server',
+    summary: 'Remote MCP server at /mcp: the keyboard data as tools for Claude, Cursor, VS Code and Hermes Agent.',
+    body: () => `The API is also an [MCP](https://modelcontextprotocol.io) server, so AI assistants can answer keyboard size questions with these numbers instead of guessing.
+
+## Endpoint
+
+\`\`\`text
+${BASE}/mcp
+\`\`\`
+
+Streamable HTTP transport, stateless, no sign-in or API key. Every tool is read-only.
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| \`list_keyboard_sizes\` | Every standard size with key count, typical dimensions, missing keys and who it suits |
+| \`compare_keyboards\` | Compare 2–6 sizes or measured keyboards: width, depth, keys lost or gained, mouse room |
+| \`get_keyboard_dimensions\` | Measured case size of keyboards reviewed on HLPlanet, by name or size |
+| \`check_desk_fit\` | Keyboard and mousepad on a desk: room left, pad overhang, 360° turn fit |
+| \`which_sizes_have_key\` | Which sizes have a key or key group |
+| \`search_hlplanet\` | Search HLPlanet reviews, comparisons and guides |
+| \`list_testing_tools\` | Free HLPlanet keyboard and controller testers |
+
+## Connect
+
+Claude Code:
+
+\`\`\`bash
+claude mcp add --transport http hlplanet ${BASE}/mcp
+\`\`\`
+
+Cursor, VS Code and other clients that read an \`mcpServers\` file:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "hlplanet": { "url": "${BASE}/mcp" }
+  }
+}
+\`\`\`
+
+Hermes Agent: install the HLPlanet plugin, which connects to this server and adds a keyboard size skill:
+
+\`\`\`bash
+hermes plugins install hlplanet/hlplanet-cursor-plugin
+\`\`\`
+
+Prefer a local server? The same tools run offline with \`npx -y hlplanet-mcp\` ([source](https://github.com/hlplanet/hlplanet-mcp)).
+
+## Privacy
+
+The server keeps no logs of tool arguments and sets no cookies. \`search_hlplanet\` sends the search text to the HLPlanet site search; every other tool answers from data built into the server.`
   },
   {
     path: '/docs/errors',

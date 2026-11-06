@@ -1,6 +1,7 @@
 // HLPlanet Keyboard API: Cloudflare Worker for api.hlplanet.com.
 import { ApiError, compare, deskFitJson, getKeyboard, getSize, keyAvailability, listKeyboards, listSizes, tools } from './api.js';
 import { PAGES, llmsTxt, markdownPath, openApi, pageHtml, pageMarkdown } from './docs.js';
+import { handleMcp } from './mcp.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -91,7 +92,8 @@ export function handle(request: Request): Response {
 }
 
 export default {
-  fetch(request: Request): Response {
+  fetch(request: Request): Response | Promise<Response> {
+    if (new URL(request.url).pathname === '/mcp') return handleMcp(request);
     return handle(request);
   }
 };

@@ -126,4 +126,18 @@ describe('Docs for agents', () => {
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe('https://api.hlplanet.com/docs/compare');
   });
+
+  it('serves a noindex privacy policy that stays out of the sitemap and llms.txt', async () => {
+    const res = get('/privacy');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex');
+    const html = await res.text();
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain('Marcus Richardson in Manchester, United Kingdom');
+    expect(get('/privacy.md').headers.get('x-robots-tag')).toBe('noindex');
+    expect(await get('/sitemap.xml').text()).not.toContain('/privacy');
+    expect(await get('/llms.txt').text()).not.toContain('/privacy');
+    expect(await get('/').text()).toContain('<a href="/privacy">Privacy</a>');
+    expect(get('/').headers.get('x-robots-tag')).toBeNull();
+  });
 });

@@ -20,6 +20,7 @@ export interface Page {
   title: string;
   summary: string;
   body: () => string;
+  noindex?: boolean; // kept out of search engines, the nav, the sitemap and llms.txt
 }
 
 export const PAGES: Page[] = [
@@ -310,6 +311,48 @@ Messages are written for people and can change; match on \`code\`.`
   }
 ];
 
+export const PRIVACY: Page = {
+  path: '/privacy',
+  title: 'Privacy policy',
+  summary: 'How the HLPlanet Keyboard API and MCP server handle data.',
+  noindex: true,
+  body: () => `Last updated: 10 November 2026
+
+This policy covers the HLPlanet Keyboard API and the HLPlanet MCP server at \`api.hlplanet.com\`: the JSON endpoints under \`/v1\`, the MCP endpoint at \`/mcp\` and these documentation pages. The [HLPlanet website](${SITE}) has its own policies.
+
+## Who runs it
+
+HLPlanet, run by Marcus Richardson in Manchester, United Kingdom. Contact: [pr@hlplanet.com](mailto:pr@hlplanet.com).
+
+## What we collect
+
+Nothing that identifies you. The API and the MCP server:
+
+- have no accounts, sign-in or API keys
+- set no cookies and run no analytics or tracking scripts
+- don't store or log the parameters you send, including MCP tool arguments. Each request is answered from data built into the server and then discarded.
+
+## Hosting
+
+The service runs on Cloudflare. Like any web host, Cloudflare processes request data such as your IP address, user agent and the requested URL to deliver the service and protect it from abuse, and may keep it for a short time under the [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).
+
+## Searching HLPlanet
+
+The \`search_hlplanet\` MCP tool sends your search text to the search on www.hlplanet.com. The request comes from our server, not from your device, so your IP address isn't passed on. The hlplanet.com web server may record the request, search text included, in its standard access logs.
+
+## AI assistants
+
+When you use the MCP server through an AI assistant such as Claude, the assistant decides what to send to the tools based on your conversation. The tools only need keyboard names, sizes and measurements, so there's no reason to include personal information. How the assistant handles your conversation is covered by its provider's privacy policy.
+
+## Your rights
+
+Under UK data protection law you can ask what personal data we hold about you and ask us to correct or delete it. Because the service doesn't store request content, there will usually be nothing to find, but email [pr@hlplanet.com](mailto:pr@hlplanet.com) and we'll check. You can also complain to the Information Commissioner's Office at [ico.org.uk](https://ico.org.uk/).
+
+## Changes
+
+If this policy changes, we'll update this page and the date at the top.`
+};
+
 export function markdownPath(page: Page): string {
   return page.path === '/' ? '/index.md' : page.path + '.md';
 }
@@ -346,7 +389,7 @@ export function pageHtml(page: Page): string {
 <meta name="description" content="${escapeHtml(page.summary)}">
 <link rel="canonical" href="${BASE}${page.path}">
 <link rel="alternate" type="text/markdown" href="${BASE}${markdownPath(page)}">
-<link rel="icon" href="https://www.hlplanet.com/favicon.ico">
+<link rel="icon" href="${BASE}/icon.png">${page.noindex ? '\n<meta name="robots" content="noindex">' : ''}
 <style>${CSS}</style>
 </head>
 <body>
@@ -357,7 +400,7 @@ export function pageHtml(page: Page): string {
 <h1>${escapeHtml(page.title)}</h1>
 ${renderMarkdown(page.body())}
 </main>
-<footer>Data from the <a href="${SIZE_TOOL_URL}">HLPlanet keyboard size comparison</a> and <a href="${SITE}">HLPlanet</a> keyboard reviews · <a href="https://github.com/hlplanet/hlplanet-keyboard-api">Source on GitHub</a> · <a href="${markdownPath(page)}">Markdown</a></footer>
+<footer>Data from the <a href="${SIZE_TOOL_URL}">HLPlanet keyboard size comparison</a> and <a href="${SITE}">HLPlanet</a> keyboard reviews · <a href="https://github.com/hlplanet/hlplanet-keyboard-api">Source on GitHub</a> · <a href="${markdownPath(page)}">Markdown</a> · <a href="/privacy">Privacy</a></footer>
 </div>
 </body>
 </html>`;

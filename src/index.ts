@@ -1,6 +1,6 @@
 // HLPlanet Keyboard API: Cloudflare Worker for api.hlplanet.com.
 import { ApiError, compare, deskFitJson, getKeyboard, getSize, keyAvailability, listKeyboards, listSizes, tools } from './api.js';
-import { PAGES, llmsTxt, markdownPath, openApi, pageHtml, pageMarkdown } from './docs.js';
+import { PAGES, PRIVACY, llmsTxt, markdownPath, openApi, pageHtml, pageMarkdown } from './docs.js';
 import { ICON_PNG_BASE64 } from './icon.js';
 import { aiCatalog, handleMcp, serverCard } from './mcp.js';
 
@@ -109,15 +109,17 @@ export function handle(request: Request): Response {
     return respond(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`, 'application/xml; charset=utf-8');
   }
 
-  const mdPage = PAGES.find((p) => markdownPath(p) === path);
-  if (mdPage) return respond(pageMarkdown(mdPage), 'text/markdown; charset=utf-8');
+  const allPages = [...PAGES, PRIVACY];
+  const noindex = (p: { noindex?: boolean }): Record<string, string> => (p.noindex ? { 'X-Robots-Tag': 'noindex' } : {});
+  const mdPage = allPages.find((p) => markdownPath(p) === path);
+  if (mdPage) return respond(pageMarkdown(mdPage), 'text/markdown; charset=utf-8', 200, noindex(mdPage));
 
-  const page = PAGES.find((p) => p.path === path);
+  const page = allPages.find((p) => p.path === path);
   if (page) {
     const wantsMarkdown = /\btext\/markdown\b/.test(request.headers.get('Accept') ?? '');
     return wantsMarkdown
-      ? respond(pageMarkdown(page), 'text/markdown; charset=utf-8', 200, { Vary: 'Accept' })
-      : respond(pageHtml(page), 'text/html; charset=utf-8', 200, { Vary: 'Accept', Link: '<https://api.hlplanet.com/llms.txt>; rel="llms-txt"' });
+      ? respond(pageMarkdown(page), 'text/markdown; charset=utf-8', 200, { Vary: 'Accept', ...noindex(page) })
+      : respond(pageHtml(page), 'text/html; charset=utf-8', 200, { Vary: 'Accept', Link: '<https://api.hlplanet.com/llms.txt>; rel="llms-txt"', ...noindex(page) });
   }
 
   return respond('Not found. Documentation: https://api.hlplanet.com/\n', 'text/plain; charset=utf-8', 404);

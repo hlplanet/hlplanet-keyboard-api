@@ -262,7 +262,7 @@ export const TOOLS = [
     name: 'search_hlplanet',
     title: 'Search HLPlanet reviews',
     description:
-      'Search HLPlanet.com, a review site for Hall effect, TMR and rapid trigger keyboards, gaming controllers and gaming gear. Returns the titles and links of matching reviews, comparisons and guides, not their text; open a link to read the article.',
+      'Search HLPlanet.com, a review site for Hall effect, TMR and rapid trigger keyboards, gaming controllers and gaming gear. Returns the titles and links of matching reviews, comparisons and guides, not the article text.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -279,7 +279,7 @@ export const TOOLS = [
     name: 'list_testing_tools',
     title: 'List free testing tools',
     description:
-      'List free browser tools from HLPlanet for testing keyboards and controllers: keyboard tester (every key, rollover, chatter, rapid trigger, SOCD / Snap Tap), gamepad and stick drift tester, controller reaction time test and keyboard size comparison. These need a person at the device, so share the links rather than running them.',
+      'List free browser tools from HLPlanet for testing keyboards and controllers: keyboard tester (every key, rollover, chatter, rapid trigger, SOCD / Snap Tap), gamepad and stick drift tester, controller reaction time test and keyboard size comparison. The testers run in a web browser with a person at the keyboard or controller.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     outputSchema: OUTPUT_SCHEMAS.list_testing_tools,
     annotations: { title: 'List free testing tools', ...READ_ONLY }

@@ -28,7 +28,7 @@ function keySet(codes: string[]) {
   return { summary: codes.length ? describeKeys(codes) : 'none', count: codes.length, codes };
 }
 
-function sizeJson(def: LayoutDef) {
+export function sizeJson(def: LayoutDef) {
   const b = sizeBoard(def);
   const full = sizeBoard(LAYOUTS[0]);
   return {
@@ -46,7 +46,7 @@ function sizeJson(def: LayoutDef) {
   };
 }
 
-function keyboardJson(b: Board) {
+export function keyboardJson(b: Board) {
   return {
     id: b.model!.id,
     name: b.name,

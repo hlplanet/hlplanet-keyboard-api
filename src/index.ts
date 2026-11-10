@@ -1,7 +1,8 @@
 // HLPlanet Keyboard API: Cloudflare Worker for api.hlplanet.com.
 import { ApiError, compare, deskFitJson, getKeyboard, getSize, keyAvailability, listKeyboards, listSizes, tools } from './api.js';
 import { PAGES, llmsTxt, markdownPath, openApi, pageHtml, pageMarkdown } from './docs.js';
-import { handleMcp } from './mcp.js';
+import { ICON_PNG_BASE64 } from './icon.js';
+import { aiCatalog, handleMcp, serverCard } from './mcp.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,33 @@ function respond(body: string, type: string, status = 200, extra: Record<string,
 
 function jsonResponse(data: unknown, status = 200): Response {
   return respond(JSON.stringify(data, null, 2) + '\n', 'application/json; charset=utf-8', status);
+}
+
+const ICON = Uint8Array.from(atob(ICON_PNG_BASE64), (c) => c.charCodeAt(0));
+
+// Server card and AI catalog, with the CORS, caching and ETag rules of the MCP server card extension
+const CARD_PATHS = ['/mcp/server-card', '/.well-known/mcp/server-card.json', '/.well-known/mcp-server-card'];
+
+function etag(body: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < body.length; i++) h = Math.imul(h ^ body.charCodeAt(i), 0x01000193);
+  return `"${(h >>> 0).toString(16)}"`;
+}
+
+function discoveryResponse(request: Request, data: unknown, type: string): Response {
+  const body = JSON.stringify(data, null, 2) + '\n';
+  const tag = etag(body);
+  const headers = {
+    'Content-Type': type,
+    'Cache-Control': CACHE,
+    ETag: tag,
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET',
+    'Access-Control-Allow-Headers': 'Content-Type, If-None-Match',
+    'Access-Control-Expose-Headers': 'ETag'
+  };
+  if (request.headers.get('If-None-Match') === tag) return new Response(null, { status: 304, headers });
+  return new Response(body, { headers });
 }
 
 function apiRoute(path: string, params: URLSearchParams): unknown {
@@ -69,6 +97,10 @@ export function handle(request: Request): Response {
     }
   }
 
+  if (CARD_PATHS.includes(path)) return discoveryResponse(request, serverCard(), 'application/mcp-server-card+json');
+  if (path === '/.well-known/ai-catalog.json') return discoveryResponse(request, aiCatalog(), 'application/ai-catalog+json');
+  if (path === '/icon.png') return new Response(ICON, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', ...CORS } });
+
   if (path === '/llms.txt') return respond(llmsTxt(), 'text/plain; charset=utf-8');
   if (path === '/openapi.json') return jsonResponse(openApi());
   if (path === '/robots.txt') return respond(`User-agent: *\nAllow: /\nSitemap: https://api.hlplanet.com/sitemap.xml\n`, 'text/plain; charset=utf-8');
@@ -93,7 +125,15 @@ export function handle(request: Request): Response {
 
 export default {
   fetch(request: Request): Response | Promise<Response> {
-    if (new URL(request.url).pathname === '/mcp') return handleMcp(request);
+    const url = new URL(request.url);
+    if (url.pathname === '/mcp') {
+      // A browser or crawler opening the endpoint gets the setup page; MCP clients asking for an SSE stream still get 405
+      const accept = request.headers.get('Accept') ?? '';
+      if ((request.method === 'GET' || request.method === 'HEAD') && !accept.includes('text/event-stream')) {
+        return handle(new Request(url.origin + '/docs/mcp', { method: request.method, headers: request.headers }));
+      }
+      return handleMcp(request);
+    }
     return handle(request);
   }
 };

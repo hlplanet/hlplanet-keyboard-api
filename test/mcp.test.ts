@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index.js';
+import { TOOLS } from '../src/mcp.js';
 
 const rpc = async (body: unknown, method = 'POST') => {
   const res = await worker.fetch(
@@ -16,6 +17,27 @@ const call = (name: string, args: Record<string, unknown> = {}) =>
   rpc({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name, arguments: args } });
 
 afterEach(() => vi.unstubAllGlobals());
+
+// Just enough JSON Schema to check structuredContent against each tool's outputSchema
+function validate(schema: any, value: unknown, path = '$'): string[] {
+  const types: string[] = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
+  const is = (t: string) =>
+    t === 'null' ? value === null
+    : t === 'array' ? Array.isArray(value)
+    : t === 'object' ? typeof value === 'object' && value !== null && !Array.isArray(value)
+    : t === 'integer' ? Number.isInteger(value)
+    : t === 'number' ? typeof value === 'number' && Number.isFinite(value)
+    : typeof value === t;
+  if (types.length && !types.some(is)) return [`${path}: expected ${types.join('|')}, got ${JSON.stringify(value)}`];
+  if (schema.enum && !schema.enum.includes(value)) return [`${path}: ${JSON.stringify(value)} not in enum`];
+  const errors: string[] = [];
+  if (Array.isArray(value) && schema.items) value.forEach((v, i) => errors.push(...validate(schema.items, v, `${path}[${i}]`)));
+  if (value && typeof value === 'object' && !Array.isArray(value) && schema.properties) {
+    for (const k of schema.required ?? []) if (!(k in value)) errors.push(`${path}.${k}: missing`);
+    for (const [k, v] of Object.entries(value)) if (schema.properties[k]) errors.push(...validate(schema.properties[k], v, `${path}.${k}`));
+  }
+  return errors;
+}
 
 describe('remote MCP server', () => {
   it('initializes and negotiates the protocol version', async () => {
@@ -67,6 +89,66 @@ describe('remote MCP server', () => {
     const { body } = await call('search_hlplanet', { query: 'wooting', limit: 3 });
     expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('https://www.hlplanet.com/wp-json/wp/v2/search?search=wooting&per_page=3&_fields=title,url,subtype');
     expect(body.result.content[0].text).toContain('- Wooting 80HE vs 60HE – review: https://www.hlplanet.com/wooting-80he-vs-60he/');
+  });
+
+  it('describes itself with a description and a 512px icon', async () => {
+    const { body } = await rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' } });
+    expect(body.result.serverInfo.description).toContain('keyboard');
+    expect(body.result.serverInfo.icons).toEqual([{ src: 'https://api.hlplanet.com/icon.png', mimeType: 'image/png', sizes: ['512x512'] }]);
+    const icon = await worker.fetch(new Request('https://api.hlplanet.com/icon.png'));
+    expect(icon.headers.get('content-type')).toBe('image/png');
+    expect([...new Uint8Array(await icon.arrayBuffer()).slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it('returns structuredContent that matches every outputSchema', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json([{ title: 'Wooting 80HE review', url: 'https://www.hlplanet.com/wooting-80he-review/', subtype: 'post' }])));
+    const calls: [string, Record<string, unknown>][] = [
+      ['list_keyboard_sizes', {}],
+      ['compare_keyboards', { keyboards: ['TKL', 'Wooting 80HE', '60%'], iso: true }],
+      ['get_keyboard_dimensions', { query: 'nuphy' }],
+      ['get_keyboard_dimensions', { size: '75%' }],
+      ['get_keyboard_dimensions', { query: 'TKL' }],
+      ['check_desk_fit', { keyboards: ['TKL', '60%'], desk_width_cm: 120, mousepad: 'xl', cm_per_360: 40 }],
+      ['check_desk_fit', { keyboards: ['100%'], desk_width_cm: 60, left_handed: true }],
+      ['which_sizes_have_key', { key: 'arrow keys' }],
+      ['search_hlplanet', { query: 'wooting' }],
+      ['list_testing_tools', {}]
+    ];
+    for (const [name, args] of calls) {
+      const { body } = await call(name, args);
+      expect(body.result.isError, `${name} ${JSON.stringify(args)}`).toBeUndefined();
+      const schema = TOOLS.find((t) => t.name === name)!.outputSchema;
+      expect(schema.type).toBe('object');
+      expect(validate(schema, body.result.structuredContent), name).toEqual([]);
+    }
+    const fallback = await call('get_keyboard_dimensions', { query: 'TKL' });
+    expect(fallback.body.result.structuredContent.standard_size.id).toBe('tkl');
+    const desk = await call('check_desk_fit', { keyboards: ['TKL'], desk_width_cm: 20 });
+    expect(desk.body.result.isError).toBe(true);
+  });
+
+  it('serves a server card and an AI catalog with caching and CORS', async () => {
+    const res = await worker.fetch(new Request('https://api.hlplanet.com/mcp/server-card'));
+    expect(res.headers.get('content-type')).toBe('application/mcp-server-card+json');
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    const card = (await res.json()) as any;
+    expect(card.$schema).toBe('https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json');
+    expect(card.name).toMatch(/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/);
+    expect(card.description.length).toBeLessThanOrEqual(100);
+    expect(card.remotes).toEqual([{ type: 'streamable-http', url: 'https://api.hlplanet.com/mcp', supportedProtocolVersions: expect.any(Array) }]);
+    const again = await worker.fetch(new Request('https://api.hlplanet.com/.well-known/mcp/server-card.json', { headers: { 'If-None-Match': res.headers.get('etag')! } }));
+    expect(again.status).toBe(304);
+    const catalog = (await (await worker.fetch(new Request('https://api.hlplanet.com/.well-known/ai-catalog.json'))).json()) as any;
+    expect(catalog.entries[0]).toMatchObject({ type: 'application/mcp-server-card+json', url: 'https://api.hlplanet.com/mcp/server-card' });
+  });
+
+  it('shows setup instructions to browsers at the endpoint URL', async () => {
+    const page = await worker.fetch(new Request('https://api.hlplanet.com/mcp', { headers: { Accept: 'text/html' } }));
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    expect(await page.text()).toContain('claude mcp add --transport http hlplanet');
+    const stream = await worker.fetch(new Request('https://api.hlplanet.com/mcp', { headers: { Accept: 'text/event-stream' } }));
+    expect(stream.status).toBe(405);
   });
 
   it('rejects GET streams, batches and invalid JSON', async () => {

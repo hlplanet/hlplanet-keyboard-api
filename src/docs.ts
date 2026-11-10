@@ -235,7 +235,9 @@ ${json(tools())}`
 ${BASE}/mcp
 \`\`\`
 
-Streamable HTTP transport, stateless, no sign-in or API key. Every tool is read-only.
+Streamable HTTP transport, stateless, no sign-in or API key. Every tool is read-only and returns a Markdown answer plus the same data as JSON (\`structuredContent\`, described by the tool's \`outputSchema\`).
+
+Clients that discover servers before connecting can read the [server card](${BASE}/mcp/server-card) or the domain's [AI catalog](${BASE}/.well-known/ai-catalog.json).
 
 ## Tools
 
@@ -273,7 +275,7 @@ Hermes Agent: install the HLPlanet plugin, which connects to this server and add
 hermes plugins install hlplanet/hlplanet-cursor-plugin
 \`\`\`
 
-Prefer a local server? The same tools run offline with \`npx -y hlplanet-mcp\` ([source](https://github.com/hlplanet/hlplanet-mcp)).
+Prefer a local server? The same tools run offline with \`npx -y hlplanet-mcp\` ([npm](https://www.npmjs.com/package/hlplanet-mcp)).
 
 ## Privacy
 
